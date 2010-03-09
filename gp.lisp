@@ -120,49 +120,58 @@
 
 (defun ramped-half-and-half (limit fset tset)
   "A gp tree is created with half of probability for each method."
-  (if (< (random 1.0) 0.5)
-      (full-method-tree 0 limit fset tset)
-      (grow-method-tree 0 limit fset tset)))
+  (let ((fset-size (length fset))
+	(tset-size (length tset)))
+    (if (< (random 1.0) 0.5)
+	(full-method-tree-generic 0 limit fset tset)
+	(grow-method-tree-generic 0 limit fset tset))))
 
-(defun full-method-tree (size limit fset tset)
- "Random tree according to the Full method."
- (if (= size limit)
-     (process-terminal (nth (random (length tset)) tset))
-     (let ((f (nth (random (length fset)) fset)))
-       (cons f
-	     (case f
-	       (aco-evaporate
-		(list (full-method-tree (1+ size) limit fset tset)))
-	       ((aco-prog2 aco-deposit) 
-		(list (full-method-tree (1+ size) limit fset tset)
-		      (full-method-tree (1+ size) limit fset tset)))
-	       (aco-prog3
-		(list (full-method-tree (1+ size) limit fset tset)
-		      (full-method-tree (1+ size) limit fset tset)
-		      (full-method-tree (1+ size) limit fset tset))))))))
+(defun make-fset (&rest args)
+  (loop 
+     for function in args by #'cddr
+     for arguments in (rest args) by #'cddr
+     collect (cons function arguments)))
 
-(defun grow-method-tree (size limit fset tset)
+(defun function-name (pair)
+  (car pair))
+
+(defun function-args (pair)
+  (cdr pair))
+
+(defun full-method-tree-generic (size limit fset fset-size tset tset-size)
+  "Random tree according to the Full method."
+  (if (= size limit)
+      (process-terminal (nth (random tset-size) tset))
+      (let* ((function (nth (random fset-size) fset))
+	     (name (function-name function))
+	     (args (function-args function)))
+	(cons name
+	      (loop repeat args 
+		 collect (full-method-tree-generic 
+			  (1+ size) limit fset fset-size tset tset-size))))))
+
+(defun grow-method-tree-generic (size limit fset fset-size tset tset-size)
   "Random tree according to the Grow method."
   (if (= size limit)
-      (process-terminal (nth (random (length tset)) tset))
+      (process-terminal (nth (random tset-size) tset))
       (let* ((set (append fset tset))
-	     (f (nth (random (length set)) set)))
-	(case f
-	  (aco-evaporate
-	   (cons f (list (grow-method-tree (1+ size) limit fset tset))))
-	  ((aco-prog2 aco-deposit) 
-	   (cons f (list (grow-method-tree (1+ size) limit fset tset)
-			 (grow-method-tree (1+ size) limit fset tset))))
-	  (aco-prog3
-	   (cons f (list (grow-method-tree (1+ size) limit fset tset)
-			 (grow-method-tree (1+ size) limit fset tset)
-			 (grow-method-tree (1+ size) limit fset tset))))
-	  (otherwise (process-terminal f))))))
+	     (element (nth (random (+ fset-size tset-size)) set)))
+	(if (consp element)
+	    (let ((name (function-name element))
+		  (args (function-args element)))
+	      (cons name
+		    (loop repeat args 
+		       collect (grow-method-tree-generic 
+				(1+ size) limit fset fset-size tset tset-size))))
+	    (process-terminal element)))))
 
 (defun process-terminal (terminal)
+  "Return a constant or a terminal function."
   (case terminal
     (gp-constant-int (gp-constant-int))
     (gp-constant-real (gp-constant-real))
+    (gp-true (gp-true))
+    (gp-false (gp-false))
     (otherwise (list terminal))))
 
 

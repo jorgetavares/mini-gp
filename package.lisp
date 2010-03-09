@@ -33,6 +33,7 @@
 	   #:individual-fitness
 	   #:safe-copy-individual
 	   #:make-random-individual
+	   #:ramped-half-and-half
 	   #:make-gp-params
 	   #:gp-params-total-generations
 	   #:gp-params-pop-size
