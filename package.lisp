@@ -1,6 +1,8 @@
 (defpackage #:mini-gp
   (:use #:common-lisp)
   (:export #:launch-gp
+	   #:*generate-constant*
+	   #:gp-constant
 	   #:gp-plus
 	   #:gp-minus
 	   #:gp-times
@@ -28,12 +30,18 @@
 	   #:gp-random-10
 	   #:gp-random-100
 	   #:gp-random-n
-	   #:make-idividual
+	   #:make-individual
 	   #:individual-tree
 	   #:individual-fitness
 	   #:safe-copy-individual
 	   #:make-random-individual
+	   #:make-fset
+	   #:function-name
+	   #:function-args
 	   #:ramped-half-and-half
+	   #:full-method-tree-generic
+	   #:grow-method-tree-generic
+	   #:make-population
 	   #:make-gp-params
 	   #:gp-params-total-generations
 	   #:gp-params-pop-size

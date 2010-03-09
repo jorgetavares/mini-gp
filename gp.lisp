@@ -21,7 +21,7 @@
   (when (and (numberp a) (numberp b))
     (* a b)))
 
-(defun gp-division (a b)
+(defun gp-divison (a b)
   (when (and (numberp a) (numberp b))
     (if (> b 0)
 	(/ a b) 0)))
@@ -92,6 +92,11 @@
 
 ;; constants (only used in a tree generation by keeping their values)
 
+(defparameter *generate-constant* nil)
+
+(defun gp-constant ()
+  (funcall *generate-constant*))
+
 (defun gp-constant-int (&optional (max 100))
   (random max))
 
@@ -123,8 +128,8 @@
   (let ((fset-size (length fset))
 	(tset-size (length tset)))
     (if (< (random 1.0) 0.5)
-	(full-method-tree-generic 0 limit fset tset)
-	(grow-method-tree-generic 0 limit fset tset))))
+	(full-method-tree-generic 0 limit fset fset-size tset tset-size)
+	(grow-method-tree-generic 0 limit fset fset-size tset tset-size))))
 
 (defun make-fset (&rest args)
   (loop 
@@ -168,6 +173,7 @@
 (defun process-terminal (terminal)
   "Return a constant or a terminal function."
   (case terminal
+    (gp-constant (gp-constant))
     (gp-constant-int (gp-constant-int))
     (gp-constant-real (gp-constant-real))
     (gp-true (gp-true))
