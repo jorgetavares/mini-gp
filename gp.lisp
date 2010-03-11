@@ -24,7 +24,7 @@
 (defun gp-divison (a b)
   (when (and (numberp a) (numberp b))
     (if (> b 0)
-	(/ a b) 0)))
+	(/ a b) b)))
 
 (defun gp-log (a)
   (when (numberp a)
@@ -218,28 +218,45 @@
   (loop 
      for individual across population
      for id from 1 to size
-     do (setf (individual-fitness individual) 
-	      (funcall fitness-function individual id generation))))
+     do (eval-individual individual fitness-function id generation)))
+
+(defun eval-individual (individual fitness-function id generation)
+  "Set the fitness function of a single individual."
+  (setf (individual-fitness individual) 
+	(funcall fitness-function individual id generation)))
+
 
 ;;;
 ;;; selection
 ;;;
 
-(defun tournament (tournament-size population size)
+(defun tournament (tournament-size population size comparator)
   "Tournament selection: return best individual from a random set of a given size."
-  (loop with best = (aref population (random size))
-     for n from 1 below tournament-size
-     do (let ((current (aref population (random size))))
-	  (when (< (individual-fitness current) (individual-fitness best))
-	    (setf best (safe-copy-individual current))))
-     finally (return best)))
+  (let ((best (aref population (random size))))
+    (loop for n from 1 below tournament-size
+       do (let ((current (aref population (random size))))
+	    (when (funcall comparator (individual-fitness current) (individual-fitness best))
+	      (setf best (safe-copy-individual current))))
+       finally (return best))))
 
-(defun selection (population size tournament-size)
+(defun index-tournament (tournament-size population size comparator)
+  "Tournament selection: return best individual from a random set of a given size."
+  (let* ((bindex (random size))
+	 (best (aref population bindex)))
+    (loop for n from 1 below tournament-size
+       do (let ((index (random size)))
+	    (when (funcall comparator (individual-fitness (aref population index)) 
+			   (individual-fitness best))
+	      (setf best (aref population index))
+	      (setf bindex index)))
+       finally (return bindex))))
+
+(defun selection (population size tournament-size comparator)
   "Return a new population."
   (loop with new-population = (make-array size)
      for i from 0 below size
      do (setf (aref new-population i)
-	      (tournament tournament-size population size))
+	      (tournament tournament-size population size comparator))
      finally (return new-population)))
 
 
@@ -248,7 +265,7 @@
 ;;;
 
 (defun find-best (population size comparator)
-  "Return the indicies of the best or worst individuals in the population, according to the comparator."
+  "Return the indicies of the best or worst individuals in the population, according to comparator."
   (loop 
      with best = 0
      for i from 1 below size 
@@ -261,11 +278,16 @@
 (defun elitism (population size best-individual)
   "Replace a random individual with the best from the previous generation."
   (let ((worst-position (find-best population size #'>)))
-    (setf (aref population worst-position) (safe-copy-individual best-individual)) population))
+    (setf (aref population worst-position) 
+	  (safe-copy-individual best-individual)) population))
 
 
 ;;;
 ;;; genetic operators
+;;;
+
+;;;
+;;; subtree crossover
 ;;;
 
 (defun apply-crossover (population size max-depth rate)
@@ -335,6 +357,49 @@
      (+ 1 (if (rest tree)
 	      (apply #'max (mapcar #'tree-depth (rest tree))) 0)) 1))
 
+;;;
+;;; point mutation
+;;;
+
+(defun apply-mutation (population size rate fset tset tset-size)
+  "Apply point mutation crossover to the population."
+  (loop for position from 0 below size
+     do (when (< (random 1.0) rate)
+	  (point-mutation (aref population position) rate fset tset tset-size))))
+
+
+(defun point-mutation (individual rate fset tset tset-size)
+  "Point mutation: for every node that can be mutated, changes to an equivalent type."
+  (setf (individual-tree individual)
+	(point-mutate-tree (individual-tree individual) rate fset tset tset-size))
+  individual)
+
+(defun point-mutate-tree (tree rate fset tset tset-size)
+  "Point mutation: for every node that can be mutated, changes to an equivalent type."
+  (if (or (not (consp tree))
+	  (null (rest tree)))
+      (mutate-terminal tree rate tset tset-size)
+      (let* ((element (first tree))
+	     (nargs (function-args (assoc element fset))))
+	(cons (mutate-function element nargs rate fset) 
+	      (loop for arg from 1 to nargs
+		 collect (point-mutate-tree (nth arg tree) rate fset tset tset-size))))))
+
+(defun mutate-terminal (terminal rate tset tset-size)
+  (if (< (random 1.0) rate)
+      (process-terminal (nth (random tset-size) tset))
+      terminal))
+
+(defun mutate-function (function nargs rate fset)
+  (if (< (random 1.0) rate)
+      (let ((filtered-fset (mapcan #'(lambda (f)
+				       (when (= nargs (function-args f)) 
+					 (list f))) fset)))
+	(if (null filtered-fset)
+	    function
+	    (function-name (nth (random (length filtered-fset)) filtered-fset))))	
+      function))
+
 
 ;;;
 ;;; GP engine
@@ -350,12 +415,13 @@
   (fitness nil)
   (t-size 3)
   (cx-rate 0.9)
+  (mt-rate 0.05)
   (elitism t)
   )
 
 (defun launch-gp (fset tset &key (id "gp") (runs 1) (output :screen) (generations 10)
 		  (pop-size 10) (initial-depth 2) (max-depth 5) (elitism t)
-		  (fitness-function nil) (params nil))		  
+		  (fitness-function nil) (params nil) (type :generational))		  
   "Start GP."
   (let* ((fitness fitness-function)
 	 (gp-params (if params params
@@ -367,23 +433,30 @@
 					:tset tset
 					:fitness fitness
 					:elitism elitism))))
-    (gp-multiple-runs gp-params :runs runs :output output :id id)))
+    (gp-multiple-runs gp-params :runs runs :output output :id id :type type)))
 
 
-(defun gp-multiple-runs (parameters &key (runs 1) (output :screen) (id "gp"))
-  "Run the gp engine for several runs"
+(defun gp-multiple-runs (parameters &key (runs 1) (output :screen) (id "gp") (type :generational))
+  "Run the gp engine for several runs."
   (loop for run from 1 to runs
-     collect (config-gp-output parameters output run id)))
+     collect (config-gp-output parameters output run id type)))
 
-(defun config-gp-output (parameters output run id)
+(defun config-gp-output (parameters output run id type)
   "Config a GP run output (:none, :screen, :files, or both)."
   (if (member output '(:files :screen+files))
       (with-open-file (run-stream (concatenate 'string id "-run" (format nil "~D" run) ".txt")
 				  :direction :output :if-exists :supersede)
 	(with-open-file (best-stream (concatenate 'string id "-best" (format nil "~D" run) ".txt")
 				     :direction :output :if-exists :supersede)
-	  (run-single-gp parameters output (list run-stream best-stream))))
-      (run-single-gp parameters output nil)))
+	  (funcall (run-gp-type type) parameters output (list run-stream best-stream))))
+      (funcall (run-gp-type type) parameters output nil)))
+
+(defun run-gp-type (type)
+  "Return the appropriate generational model to launch gp."
+  (case type
+    (:generational #'run-single-gp)
+    (:steady-state #'run-steady-state)
+    (otherwise (error "Invalid generational model for GP engine."))))
 
 (defun run-single-gp (parameters output streams)
   "Main gp loop."
@@ -393,9 +466,11 @@
 	 (max-depth (gp-params-max-depth parameters))
 	 (fset (gp-params-fset parameters))
 	 (tset (gp-params-tset parameters))
+	 (tset-size (length tset))
 	 (fitness (gp-params-fitness parameters))
 	 (t-size (gp-params-t-size parameters))
 	 (cx-rate (gp-params-cx-rate parameters))
+	 (mt-rate (gp-params-mt-rate parameters))
 	 (population (make-population pop-size initial-depth fset tset))
 	 (elitism-p (gp-params-elitism parameters))
 	 (best nil) (run-best nil))
@@ -404,12 +479,56 @@
     (setf run-best (copy-individual best))
     (output-generation 1 population pop-size best run-best output streams)
     (loop for generation from 2 to total-generations
-       do (let ((new-population (selection population pop-size t-size)))
+       do (let ((new-population (selection population pop-size t-size #'<)))
 	    (apply-crossover new-population pop-size max-depth cx-rate)
+	    (apply-mutation new-population pop-size mt-rate fset tset tset-size)
 	    (eval-population new-population pop-size fitness generation)
 	    (when elitism-p
 	      (elitism new-population pop-size best))
 	    (setf population new-population)
+	    (setf best (copy-individual (aref population (find-best population pop-size #'<))))
+	    (when (< (individual-fitness best) (individual-fitness run-best))
+	      (setf run-best (copy-individual best)))
+	    (output-generation generation population pop-size best run-best output streams))
+       finally (return run-best))))
+
+(defun run-steady-state (parameters output streams)
+  "Main gp loop."
+  (let* ((total-generations (gp-params-total-generations parameters))
+	 (pop-size (gp-params-pop-size parameters))
+	 (initial-depth (gp-params-initial-depth parameters))
+	 (max-depth (gp-params-max-depth parameters))
+	 (fset (gp-params-fset parameters))
+	 (tset (gp-params-tset parameters))
+	 (tset-size (length tset))
+	 (fitness (gp-params-fitness parameters))
+	 (t-size (gp-params-t-size parameters))
+	 (cx-rate (gp-params-cx-rate parameters))
+	 (mt-rate (gp-params-mt-rate parameters))
+	 (population (make-population pop-size initial-depth fset tset))
+	 (elitism-p (gp-params-elitism parameters))
+	 (best nil) (run-best nil))
+    (eval-population population pop-size fitness 1)
+    (setf best (copy-individual (aref population (find-best population pop-size #'<))))
+    (setf run-best (copy-individual best))
+    (output-generation 1 population pop-size best run-best output streams)
+    (loop for generation from 2 to total-generations
+       do (progn
+	    (loop for i from 1 to pop-size 
+	       do (let ((offspring nil))
+		    (if (< (random 1.0) cx-rate)
+			(let* ((parent1 (tournament t-size population pop-size #'<))
+			       (parent2 (tournament t-size population pop-size #'<)))
+			  (setf offspring (tree-crossover max-depth parent1 parent2)))
+			(setf offspring
+			      (point-mutation 
+			       (tournament t-size population pop-size #'<) 
+			       mt-rate fset tset tset-size)))
+		    (eval-individual offspring fitness i generation)
+		    (setf (aref population (index-tournament t-size population pop-size #'>))
+			  (safe-copy-individual offspring))))
+	    (when elitism-p
+	      (elitism population pop-size best))
 	    (setf best (copy-individual (aref population (find-best population pop-size #'<))))
 	    (when (< (individual-fitness best) (individual-fitness run-best))
 	      (setf run-best (copy-individual best)))
