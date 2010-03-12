@@ -1,6 +1,7 @@
 (defpackage #:mini-gp
   (:use #:common-lisp)
   (:export #:launch-gp
+	   #:gp-multiple-runs
 	   #:*generate-constant*
 	   #:gp-constant
 	   #:gp-plus
@@ -52,5 +53,6 @@
 	   #:gp-params-fitness
 	   #:gp-params-cx-rate
 	   #:gp-params-elitism
+	   #:gp-params-type
 	   ))
   

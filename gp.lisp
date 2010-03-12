@@ -417,11 +417,13 @@
   (cx-rate 0.9)
   (mt-rate 0.05)
   (elitism t)
+  (type :generational)
   )
 
-(defun launch-gp (fset tset &key (id "gp") (runs 1) (output :screen) (generations 10)
-		  (pop-size 10) (initial-depth 2) (max-depth 5) (elitism t)
-		  (fitness-function nil) (params nil) (type :generational))		  
+(defun launch-gp (fset tset &key (id "gp") (runs 1) (output :screen) 
+		  (generations 10) (pop-size 10) (initial-depth 2) 
+		  (max-depth 5) (elitism t)
+		  (fitness-function nil) (params nil) (type :generational)) 
   "Start GP."
   (let* ((fitness fitness-function)
 	 (gp-params (if params params
@@ -432,8 +434,10 @@
 					:fset fset
 					:tset tset
 					:fitness fitness
-					:elitism elitism))))
-    (gp-multiple-runs gp-params :runs runs :output output :id id :type type)))
+					:elitism elitism
+					:type type))))
+    (gp-multiple-runs gp-params :runs runs :output output :id id 
+		      :type (gp-params-type gp-params))))
 
 
 (defun gp-multiple-runs (parameters &key (runs 1) (output :screen) (id "gp") (type :generational))
@@ -473,13 +477,14 @@
 	 (mt-rate (gp-params-mt-rate parameters))
 	 (population (make-population pop-size initial-depth fset tset))
 	 (elitism-p (gp-params-elitism parameters))
-	 (best nil) (run-best nil))
+	 (best nil) (run-best nil) (new-best-p t))
     (eval-population population pop-size fitness 1)
     (setf best (copy-individual (aref population (find-best population pop-size #'<))))
     (setf run-best (copy-individual best))
-    (output-generation 1 population pop-size best run-best output streams)
+    (output-generation 1 population pop-size best run-best new-best-p output streams)
     (loop for generation from 2 to total-generations
        do (let ((new-population (selection population pop-size t-size #'<)))
+	    (setf new-best-p nil)
 	    (apply-crossover new-population pop-size max-depth cx-rate)
 	    (apply-mutation new-population pop-size mt-rate fset tset tset-size)
 	    (eval-population new-population pop-size fitness generation)
@@ -488,8 +493,10 @@
 	    (setf population new-population)
 	    (setf best (copy-individual (aref population (find-best population pop-size #'<))))
 	    (when (< (individual-fitness best) (individual-fitness run-best))
-	      (setf run-best (copy-individual best)))
-	    (output-generation generation population pop-size best run-best output streams))
+	      (setf run-best (copy-individual best))
+	      (setf new-best-p t))
+	    (output-generation generation population pop-size best 
+			       run-best new-best-p output streams))
        finally (return run-best))))
 
 (defun run-steady-state (parameters output streams)
@@ -507,13 +514,14 @@
 	 (mt-rate (gp-params-mt-rate parameters))
 	 (population (make-population pop-size initial-depth fset tset))
 	 (elitism-p (gp-params-elitism parameters))
-	 (best nil) (run-best nil))
+	 (best nil) (run-best nil) (new-best-p t))
     (eval-population population pop-size fitness 1)
     (setf best (copy-individual (aref population (find-best population pop-size #'<))))
     (setf run-best (copy-individual best))
-    (output-generation 1 population pop-size best run-best output streams)
+    (output-generation 1 population pop-size best run-best new-best-p output streams)
     (loop for generation from 2 to total-generations
        do (progn
+	    (setf new-best-p nil)
 	    (loop for i from 1 to pop-size 
 	       do (let ((offspring nil))
 		    (if (< (random 1.0) cx-rate)
@@ -531,11 +539,14 @@
 	      (elitism population pop-size best))
 	    (setf best (copy-individual (aref population (find-best population pop-size #'<))))
 	    (when (< (individual-fitness best) (individual-fitness run-best))
-	      (setf run-best (copy-individual best)))
-	    (output-generation generation population pop-size best run-best output streams))
+	      (setf run-best (copy-individual best))
+	      (setf new-best-p t))
+	    (output-generation generation population pop-size best 
+			       run-best new-best-p output streams))
        finally (return run-best))))
 
-(defun output-generation (generation population pop-size best run-best output streams)
+(defun output-generation (generation population pop-size best run-best 
+			  new-best-p output streams)
   "Shows the state of a generation"
   (unless (eql output :none)
     (let ((best-fitness (float (individual-fitness best)))
@@ -544,8 +555,9 @@
 	(format t "~a ~a ~a ~%" generation best-fitness avg))
       (when (member output '(:files :scree+files))
 	(format (first streams) "~a ~a ~a ~%" generation best-fitness avg)
-	(when (<= (individual-fitness best) (individual-fitness run-best))
+	(when new-best-p
 	  (format (second streams) "~a ~%" (list generation run-best)))))))
+  
 
 (defun average (population pop-size)
   "Average of population's fitness."
