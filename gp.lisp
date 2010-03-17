@@ -191,7 +191,8 @@
 
 (defstruct individual
   (tree nil)
-  (fitness 0))
+  (fitness 0)
+  (eval-p t)) ; if eval-p is t, it means that tree must be evaluated
 
 (defun safe-copy-individual (individual)
   "Fresh copy of a individual structure."
@@ -222,8 +223,10 @@
 
 (defun eval-individual (individual fitness-function id generation)
   "Set the fitness function of a single individual."
-  (setf (individual-fitness individual) 
-	(funcall fitness-function individual id generation)))
+  (when (individual-eval-p individual)
+    (setf (individual-fitness individual) 
+	  (funcall fitness-function individual id generation))
+    (setf (individual-eval-p individual) nil)))
 
 
 ;;;
@@ -295,8 +298,11 @@
   (loop for position from 0 below size by 2
      do (when (< (random 1.0) rate)
 	  (multiple-value-bind (o1 o2)
-	      (tree-crossover max-depth (aref population position) (aref population (1+ position)))
-	    (setf (aref population position) o1 (aref population (1+ position)) o2)))))
+	      (tree-crossover max-depth 
+			      (aref population position) 
+			      (aref population (1+ position)))
+	    (setf (aref population position) o1 
+		  (aref population (1+ position)) o2)))))
 
 (defun tree-crossover (size p1 p2)
   (multiple-value-bind (o1 o2)
@@ -365,8 +371,10 @@
   "Apply point mutation crossover to the population."
   (loop for position from 0 below size
      do (when (< (random 1.0) rate)
-	  (point-mutation (aref population position) rate fset tset tset-size))))
-
+	  (let ((individual (aref population position)))
+	    (point-mutation individual rate fset tset tset-size)
+	    (setf (individual-eval-p individual) nil)))))
+	 
 
 (defun point-mutation (individual rate fset tset tset-size)
   "Point mutation: for every node that can be mutated, changes to an equivalent type."
@@ -528,10 +536,12 @@
 			(let* ((parent1 (tournament t-size population pop-size #'<))
 			       (parent2 (tournament t-size population pop-size #'<)))
 			  (setf offspring (tree-crossover max-depth parent1 parent2)))
-			(setf offspring
-			      (point-mutation 
-			       (tournament t-size population pop-size #'<) 
-			       mt-rate fset tset tset-size)))
+			(progn 
+			  (setf offspring
+				(point-mutation 
+				 (tournament t-size population pop-size #'<) 
+				 mt-rate fset tset tset-size))
+			  (setf (individual-eval-p offspring) nil)))
 		    (eval-individual offspring fitness i generation)
 		    (setf (aref population (index-tournament t-size population pop-size #'>))
 			  (copy-individual offspring))))

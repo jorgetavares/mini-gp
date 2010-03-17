@@ -50,7 +50,7 @@
 ;;;
 
 
-(defparameter *regression-params* (mini-gp:make-gp-params :total-generations 50
+(defparameter *regression-params* (mini-gp:make-gp-params :total-generations 10
 							  :pop-size 1000
 							  :initial-depth 1
 							  :max-depth 4
