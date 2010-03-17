@@ -236,7 +236,7 @@
     (loop for n from 1 below tournament-size
        do (let ((current (aref population (random size))))
 	    (when (funcall comparator (individual-fitness current) (individual-fitness best))
-	      (setf best (safe-copy-individual current))))
+	      (setf best (copy-individual current))))
        finally (return best))))
 
 (defun index-tournament (tournament-size population size comparator)
@@ -279,7 +279,7 @@
   "Replace a random individual with the best from the previous generation."
   (let ((worst-position (find-best population size #'>)))
     (setf (aref population worst-position) 
-	  (safe-copy-individual best-individual)) population))
+	  (copy-individual best-individual)) population))
 
 
 ;;;
@@ -534,7 +534,7 @@
 			       mt-rate fset tset tset-size)))
 		    (eval-individual offspring fitness i generation)
 		    (setf (aref population (index-tournament t-size population pop-size #'>))
-			  (safe-copy-individual offspring))))
+			  (copy-individual offspring))))
 	    (when elitism-p
 	      (elitism population pop-size best))
 	    (setf best (copy-individual (aref population (find-best population pop-size #'<))))

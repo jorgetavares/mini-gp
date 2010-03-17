@@ -51,15 +51,16 @@
 
 
 (defparameter *regression-params* (mini-gp:make-gp-params :total-generations 50
-							  :pop-size 100
-							  :initial-depth 3
-							  :max-depth 10
+							  :pop-size 1000
+							  :initial-depth 1
+							  :max-depth 4
 							  :fset *fset*
 							  :tset *tset*
 							  :fitness (make-fitness-regression 
 								    10 *x-points* *y-points*)
 							  :elitism nil
+							  :type :steady-state
 							  ))
 
-(defun regression (&key (params *regression-params*) (runs 1))
-  (mini-gp:launch-gp *fset* *tset* :params params :runs runs))
+(defun regression (&key (params *regression-params*) (runs 1)  (output :screen))
+  (mini-gp:launch-gp *fset* *tset* :params params :runs runs :output output))

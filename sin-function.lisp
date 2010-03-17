@@ -1,5 +1,5 @@
 ;;;;
-;;;; mini-gp example: tinygp symbolic regression example (see tinygp code for more info)
+;;;; mini-gp example: sin function example (see tinygp code for more info)
 ;;;;
 
 (use-package :mini-gp)
@@ -31,37 +31,6 @@
 ;;;
 ;;; fitness function ( y = f(x) = sin (x) )
 ;;;
-
-(defparameter *data-points* (make-array '(63 2) :initial-contents *sin-data-points*))
-
-(defun make-fitness-sin (fitness-cases data-points)
-  #'(lambda (individual id generation)
-      (declare (ignore id generation))
-      (loop for i from 0 below fitness-cases
-	 do (setf *X* (aref data-points i 0))
-	 sum (expt (- (eval (mini-gp:individual-tree individual)) 
-		      (aref data-points i 1)) 2))))
-
-
-;;;
-;;; run GP
-;;;
-
-
-(defparameter *sin-params* (mini-gp:make-gp-params :total-generations 100
-						   :pop-size 1000
-						   :initial-depth 2
-						   :max-depth 6
-						   :fset *fset*
-						   :tset *tset*
-						   :fitness (make-fitness-sin
-							     63 *data-points*)
-						   :elitism nil
-						   ))
-
-(defun gp-sin (&key (params *sin-params*) (runs 1) (type :generational))
-  (mini-gp:launch-gp *fset* *tset* :params params :runs runs :type type))
-
 
 (defparameter *sin-data-points* '((0 0)
 				  (0.1 0.0998334166468282)
@@ -126,6 +95,39 @@
 				  (6 -0.279415498198926)
 				  (6.1 -0.182162504272095)
 				  (6.2 -0.0830894028174964)))
+
+(defparameter *data-points* (make-array '(63 2) :initial-contents *sin-data-points*))
+
+(defun make-fitness-sin (fitness-cases data-points)
+  #'(lambda (individual id generation)
+      (declare (ignore id generation))
+      (loop for i from 0 below fitness-cases
+	 do (setf *X* (aref data-points i 0))
+	 sum (expt (- (eval (mini-gp:individual-tree individual)) 
+		      (aref data-points i 1)) 2))))
+
+
+;;;
+;;; run GP
+;;;
+
+
+(defparameter *sin-params* (mini-gp:make-gp-params :total-generations 100
+						   :pop-size 100000
+						   :initial-depth 2
+						   :max-depth 5
+						   :fset *fset*
+						   :tset *tset*
+						   :fitness (make-fitness-sin
+							     63 *data-points*)
+						   :elitism t
+						   :type :steady-state
+						   ))
+
+(defun gp-sin (&key (params *sin-params*) (runs 1) (output :screen)) 
+  (mini-gp:launch-gp *fset* *tset* :params params :runs runs :output output)) 
+		 
+
 
 (defun run-tree (tree)
   (do ((point 0.0 (+ point 0.1)))
