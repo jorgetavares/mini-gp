@@ -192,6 +192,7 @@
 (defstruct individual
   (tree nil)
   (fitness 0)
+  (info nil)  ; extra stuff about the individual 
   (eval-p t)) ; if eval-p is t, it means that tree must be evaluated
 
 (defun safe-copy-individual (individual)
@@ -307,8 +308,8 @@
 (defun tree-crossover (size p1 p2)
   (multiple-value-bind (o1 o2)
       (cross-subtrees (individual-tree p1) (individual-tree p2) size)
-    (values (make-individual :tree (copy-tree o1))
-	    (make-individual :tree (copy-tree o2)))))
+    (values (make-individual :tree (copy-tree o1) :eval-p t)
+	    (make-individual :tree (copy-tree o2) :eval-p t))))
 
 (defun cross-subtrees (p1 p2 depth)
   "Exchanges two subtrees in a random point."
@@ -367,13 +368,13 @@
 ;;; point mutation
 ;;;
 
-(defun apply-mutation (population size rate fset tset tset-size)
+(defun apply-mutation (population size mt-rate node-rate fset tset tset-size)
   "Apply point mutation crossover to the population."
   (loop for position from 0 below size
-     do (when (< (random 1.0) rate)
+     do (when (< (random 1.0) mt-rate)
 	  (let ((individual (aref population position)))
-	    (point-mutation individual rate fset tset tset-size)
-	    (setf (individual-eval-p individual) nil)))))
+	    (point-mutation individual node-rate fset tset tset-size)
+	    (setf (individual-eval-p individual) t)))))
 	 
 
 (defun point-mutation (individual rate fset tset tset-size)
@@ -447,11 +448,29 @@
     (gp-multiple-runs gp-params :runs runs :output output :id id 
 		      :type (gp-params-type gp-params))))
 
+(defun launch-gp2 (run fset tset &key (id "gp") (output :screen) 
+		  (generations 10) (pop-size 10) (initial-depth 2) 
+		  (max-depth 5) (elitism t)
+		  (fitness-function nil) (params nil) (type :generational)) 
+  "Start GP."
+  (let* ((fitness fitness-function)
+	 (gp-params (if params params
+			(make-gp-params :total-generations generations
+					:pop-size pop-size
+					:initial-depth initial-depth
+					:max-depth max-depth
+					:fset fset
+					:tset tset
+					:fitness fitness
+					:elitism elitism
+					:type type))))
+    (config-gp-output gp-params output run id (gp-params-type gp-params))))
 
 (defun gp-multiple-runs (parameters &key (runs 1) (output :screen) (id "gp") (type :generational))
   "Run the gp engine for several runs."
   (loop for run from 1 to runs
-     collect (config-gp-output parameters output run id type)))
+     do (format t "GP run ~a~%" run)
+     collect (time (config-gp-output parameters output run id type))))
 
 (defun config-gp-output (parameters output run id type)
   "Config a GP run output (:none, :screen, :files, or both)."
@@ -494,7 +513,7 @@
        do (let ((new-population (selection population pop-size t-size #'<)))
 	    (setf new-best-p nil)
 	    (apply-crossover new-population pop-size max-depth cx-rate)
-	    (apply-mutation new-population pop-size mt-rate fset tset tset-size)
+	    (apply-mutation new-population pop-size 0.1 mt-rate fset tset tset-size)
 	    (eval-population new-population pop-size fitness generation)
 	    (when elitism-p
 	      (elitism new-population pop-size best))
@@ -563,7 +582,7 @@
 	  (avg (float (average population pop-size))))
       (when (member output '(:screen :screen+files))
 	(format t "~a ~a ~a ~%" generation best-fitness avg))
-      (when (member output '(:files :scree+files))
+      (when (member output '(:files :screen+files))
 	(format (first streams) "~a ~a ~a ~%" generation best-fitness avg)
 	(when new-best-p
 	  (format (second streams) "~a ~%" (list generation run-best)))))))

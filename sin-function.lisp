@@ -132,7 +132,7 @@
 						   :fitness (make-compiled-fitness-sin
 							     63 *data-points*)
 						   :elitism t
-						   :type :steady-state
+						   :type :generational
 						   ))
 
 (defun gp-sin (&key (params *sin-params*) (runs 1) (output :screen)) 

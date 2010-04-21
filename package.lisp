@@ -1,6 +1,7 @@
 (defpackage #:mini-gp
   (:use #:common-lisp)
   (:export #:launch-gp
+	   #:launch-gp2
 	   #:gp-multiple-runs
 	   #:*generate-constant*
 	   #:gp-constant
@@ -31,9 +32,12 @@
 	   #:gp-random-10
 	   #:gp-random-100
 	   #:gp-random-n
+	   #:individual
 	   #:make-individual
 	   #:individual-tree
 	   #:individual-fitness
+	   #:individual-info
+	   #:individual-eval-p
 	   #:safe-copy-individual
 	   #:make-random-individual
 	   #:make-fset
