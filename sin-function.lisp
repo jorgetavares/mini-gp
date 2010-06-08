@@ -123,16 +123,16 @@
 ;;;
 
 
-(defparameter *sin-params* (mini-gp:make-gp-params :total-generations 10
-						   :pop-size 1000
+(defparameter *sin-params* (mini-gp:make-gp-params :total-generations 50
+						   :pop-size 20000
 						   :initial-depth 2
-						   :max-depth 15
+						   :max-depth 5
 						   :fset *fset*
 						   :tset *tset*
-						   :fitness (make-compiled-fitness-sin
+						   :fitness (make-fitness-sin
 							     63 *data-points*)
-						   :elitism t
-						   :type :generational
+						   :elitism nil
+						   :type :steady-state
 						   ))
 
 (defun gp-sin (&key (params *sin-params*) (runs 1) (output :screen)) 

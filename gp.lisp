@@ -487,6 +487,7 @@
   (case type
     (:generational #'run-single-gp)
     (:steady-state #'run-steady-state)
+    (:random-search #'run-random-search)
     (otherwise (error "Invalid generational model for GP engine."))))
 
 (defun run-single-gp (parameters output streams)
@@ -594,3 +595,28 @@
      sum (individual-fitness individual) into total
      finally (return (/ total pop-size))))
 
+(defun run-random-search (parameters output streams)
+  "Random search loop (for comparision purposes)."
+  (let* ((total-generations (gp-params-total-generations parameters))
+	 (pop-size (gp-params-pop-size parameters))
+	 (max-depth (gp-params-max-depth parameters))
+	 (fset (gp-params-fset parameters))
+	 (tset (gp-params-tset parameters))
+	 (fitness (gp-params-fitness parameters))
+	 (population (make-population pop-size max-depth fset tset))
+	 (best nil) (run-best nil) (new-best-p t))
+    (eval-population population pop-size fitness 1)
+    (setf best (copy-individual (aref population (find-best population pop-size #'<))))
+    (setf run-best (copy-individual best))
+    (output-generation 1 population pop-size best run-best new-best-p output streams)
+    (loop for generation from 2 to total-generations
+       do (let ((new-population (make-population pop-size max-depth fset tset)))
+	    (setf new-best-p nil)
+	    (eval-population new-population pop-size fitness generation)
+	    (setf population new-population)
+	    (setf best (copy-individual (aref population (find-best population pop-size #'<))))
+	    (when (< (individual-fitness best) (individual-fitness run-best))
+	      (setf run-best (copy-individual best))
+	      (setf new-best-p t))
+	    (output-generation generation population pop-size best run-best new-best-p output streams))
+       finally (return run-best))))

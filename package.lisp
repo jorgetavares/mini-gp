@@ -2,6 +2,7 @@
   (:use #:common-lisp)
   (:export #:launch-gp
 	   #:launch-gp2
+	   #:run-random-search
 	   #:gp-multiple-runs
 	   #:*generate-constant*
 	   #:gp-constant
