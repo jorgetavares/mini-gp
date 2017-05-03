@@ -1,8 +1,41 @@
+;;;; Copyright (c) 2011 Jorge Tavares <jorge.tavares@ieee.org>
+;;;;
+;;;; Permission is hereby granted, free of charge, to any person obtaining
+;;;; a copy of this software and associated documentation files (the
+;;;; "Software"), to deal in the Software without restriction, including
+;;;; without limitation the rights to use, copy, modify, merge, publish,
+;;;; distribute, sublicense, and/or sell copies of the Software, and to
+;;;; permit persons to whom the Software is furnished to do so, subject to
+;;;; the following conditions:
+;;;;
+;;;; The above copyright notice and this permission notice shall be included
+;;;; in all copies or substantial portions of the Software.
+;;;;
+;;;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+;;;; EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+;;;; MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+;;;; IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+;;;; CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 ;;;;
 ;;;; mini-gp example: sin function example (see tinygp code for more info)
 ;;;;
 
-(use-package :mini-gp)
+(defpackage mini-gp-sin
+  (:use common-lisp mini-gp)
+  (:export gp-sin
+	   var-x
+	   real-constants
+	   make-fitness-regression
+	   *X*
+	   *fset*
+	   *tset*
+	   *sin-data-points*
+	   *data-points*))
+
+(in-package mini-gp-sin)
 
 ;;;
 ;;; function and terminal sets
@@ -10,22 +43,21 @@
 
 (defparameter *X* 0)
 
-(defun var-x () 
-  *X*)
+(defun var-x () *X*)
 
 (defun real-constants (min max)
   #'(lambda ()
       (+ min (random (float (1+ (- max min)))))))
 
-(setf mini-gp:*generate-constant* (real-constants -5 5))
+(setf *generate-constant* (real-constants -5 5))
 
-(defparameter *fset* (mini-gp:make-fset 'mini-gp:gp-plus 2
-					'mini-gp:gp-minus 2 
-					'mini-gp:gp-times 2
-					'mini-gp:gp-divison 2
-					))
+(defparameter *fset* (make-fset 'gp-plus 2
+				'gp-minus 2 
+				'gp-times 2
+				'gp-divison 2
+				))
 
-(defparameter *tset* '(mini-gp:gp-constant var-x))
+(defparameter *tset* '(gp-constant var-x))
 
 
 ;;;
@@ -99,69 +131,32 @@
 (defparameter *data-points* (make-array '(63 2) :initial-contents *sin-data-points*))
 
 (defun make-fitness-sin (fitness-cases data-points)
-  #'(lambda (individual id generation)
-      (declare (ignore id generation))
+  #'(lambda (individual)
       (loop for i from 0 below fitness-cases
-	 do (setf *X* (aref data-points i 0))
-	 sum (expt (- (eval (mini-gp:individual-tree individual)) 
-		      (aref data-points i 1)) 2))))
-
-(defun make-compiled-fitness-sin (fitness-cases data-points)
-  #'(lambda (individual id generation)
-      (declare (ignore id generation))
-      (loop with prog = (compile nil 
-				 `(lambda () 
-				    ,(mini-gp:individual-tree individual))) 
-	 for i from 0 below fitness-cases
-	 do (setf *X* (aref data-points i 0))
-	 sum (expt (- (funcall prog) 
-		      (aref data-points i 1)) 2))))
-
+	    do (setf *X* (aref data-points i 0))
+	    sum (expt (- (eval (individual-tree individual)) 
+			 (aref data-points i 1)) 2))))
 
 ;;;
 ;;; run GP
 ;;;
 
-
-(defparameter *sin-params* (mini-gp:make-gp-params :total-generations 50
-						   :pop-size 20000
-						   :initial-depth 2
-						   :max-depth 5
-						   :fset *fset*
-						   :tset *tset*
-						   :fitness (make-fitness-sin
-							     63 *data-points*)
-						   :elitism nil
-						   :type :steady-state
-						   ))
+(defparameter *sin-params* (make-gp-params :total-generations 50
+					   :pop-size 20000
+					   :initial-depth 2
+					   :max-depth 5
+					   :fset *fset*
+					   :tset *tset*
+					   :fitness (make-fitness-sin
+						     63 *data-points*)
+					   :elitism nil
+					   :type :steady-state
+					   ))
 
 (defun gp-sin (&key (params *sin-params*) (runs 1) (output :screen)) 
-  (mini-gp:launch-gp *fset* *tset* :params params :runs runs :output output)) 
+  (launch-gp *fset* *tset* :params params :runs runs :output output)) 
 		 
-
-
-(defun run-tree (tree &optional (compile-p nil))
-  (let ((prog (if compile-p
-		  (compile nil `(lambda () ,tree))
-		  tree)))
-    (do ((point 0.0 (+ point 0.1)))
-	((> point 6.2) 'done)
-      (setf *X* point)
-      (if compile-p
-	  (format t "~a ~%" (funcall prog))
-	  (format t "~a ~%" (eval prog))))))
-
-(defun run-tree2 (tree &optional (compile-p nil))
-  (let ((prog (if compile-p
-		  (compile nil `(lambda () ,tree))
-		  tree)))
-    (do ((point 0.0 (+ point 0.1)))
-	((> point 6.2) 'done)
-      (setf *X* point)
-      (if compile-p
-	  (funcall prog)
-	  (eval prog)))))
-
+;; solution example evolved by mini-gp
 ;(#S(INDIVIDUAL
 ;    :TREE (GP-DIVISON (GP-MINUS 3.1250563 (VAR-X))
 ;                      (GP-PLUS

@@ -19,16 +19,66 @@
 ;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-(defsystem :mini-gp
-  :description "mini-gp: a minimalistic Genetic Programming library."  
-  :version "0.2"  
-  :author "Jorge Tavares <jorge.tavares@ieee.org>"  
-  :licence "MIT"
-  :serial t
-  :components ((:file "src/packages")
-	       (:file "src/sets")
-	       (:file "src/operators")
-	       (:file "src/engine")
-	       (:file "src/mini-gp")
-	       (:static-file "README")
-	       (:static-file "LICENSE")))
+(defpackage :mini-gp
+  (:use :common-lisp)
+  (:export launch-gp
+	   launch-gp2
+	   run-random-search
+	   gp-multiple-runs
+	   *generate-constant*
+	   gp-constant
+	   gp-plus
+	   gp-minus
+	   gp-times
+	   gp-divison
+	   gp-log
+	   gp-srqt
+	   gp-square-root
+	   gp-power
+	   gp-square
+	   gp-if
+	   gp-and
+	   gp-or
+	   gp-not
+	   gp-<
+	   gp-<=
+	   gp->
+	   gp->=
+	   gp-=
+	   gp-/=
+	   gp-constant-int
+	   gp-constant-real
+	   gp-true
+	   gp-false
+	   gp-random-real
+	   gp-random-10
+	   gp-random-100
+	   gp-random-n
+	   individual
+	   make-individual
+	   individual-tree
+	   individual-fitness
+	   individual-info
+	   individual-eval-p
+	   safe-copy-individual
+	   make-random-individual
+	   make-fset
+	   function-name
+	   function-args
+	   ramped-half-and-half
+	   full-method-tree-generic
+	   grow-method-tree-generic
+	   make-population
+	   make-gp-params
+	   gp-params-total-generations
+	   gp-params-pop-size
+	   gp-params-initial-depth
+	   gp-params-max-depth
+	   gp-params-fset
+	   gp-params-tset
+	   gp-params-fitness
+	   gp-params-cx-rate
+	   gp-params-elitism
+	   gp-params-type
+	   ))
+  

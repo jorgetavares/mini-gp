@@ -19,16 +19,13 @@
 ;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-(defsystem :mini-gp
-  :description "mini-gp: a minimalistic Genetic Programming library."  
+(defsystem :mini-gp-examples
+  :description "examples of using mini-gp."
   :version "0.2"  
   :author "Jorge Tavares <jorge.tavares@ieee.org>"  
   :licence "MIT"
+  :depends-on (mini-gp)
   :serial t
-  :components ((:file "src/packages")
-	       (:file "src/sets")
-	       (:file "src/operators")
-	       (:file "src/engine")
-	       (:file "src/mini-gp")
-	       (:static-file "README")
-	       (:static-file "LICENSE")))
+  :components ((:file "examples/regression")
+	       (:file "examples/multi-regression")
+	       (:file "examples/sin-function")))
