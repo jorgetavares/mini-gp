@@ -68,13 +68,13 @@
 
 (defun make-fitness-regression (fitness-cases)
   #'(lambda (individual)
-      (loop with expected = 0
-	    repeat fitness-cases
-	    do (progn
-		 (setf *X* (random 1.0) *Y* (random 1.0))
-		 (setf expected (+ (* *X* *X* *Y*) (* *X* *Y*) *Y*)))
-	    sum (expt (- expected 
-			 (eval (individual-tree individual)) 2))))
+      (let ((fn (compile-tree (individual-tree individual))))
+        (loop with expected = 0
+	      repeat fitness-cases
+	      do (progn
+		   (setf *X* (random 1.0) *Y* (random 1.0))
+		   (setf expected (+ (* *X* *X* *Y*) (* *X* *Y*) *Y*)))
+	      sum (expt (- expected (funcall fn)) 2)))))
 
 
 ;;;

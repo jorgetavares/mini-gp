@@ -27,6 +27,7 @@
   :serial t
   :components ((:file "src/packages")
 	       (:file "src/sets")
+	       (:file "src/evaluator")
 	       (:file "src/operators")
 	       (:file "src/engine")
 	       (:file "src/mini-gp")

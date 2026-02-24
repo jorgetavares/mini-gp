@@ -71,10 +71,11 @@
 
 (defun make-fitness-regression (fitness-cases x-points y-points)
   #'(lambda (individual)
-      (loop for i from 0 below fitness-cases
-	    do (setf *X* (nth i x-points))
-	    sum (expt (- (eval (individual-tree individual)) 
-			 (nth i y-points)) 2))))
+      (let ((fn (compile-tree (individual-tree individual))))
+        (loop for i from 0 below fitness-cases
+	      do (setf *X* (nth i x-points))
+	      sum (expt (- (funcall fn) 
+			   (nth i y-points)) 2)))))
 
 
 ;;;

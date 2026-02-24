@@ -62,6 +62,8 @@
 	   individual-eval-p
 	   safe-copy-individual
 	   make-random-individual
+	   eval-tree
+	   compile-tree
 	   make-fset
 	   function-name
 	   function-args

@@ -132,10 +132,11 @@
 
 (defun make-fitness-sin (fitness-cases data-points)
   #'(lambda (individual)
-      (loop for i from 0 below fitness-cases
-	    do (setf *X* (aref data-points i 0))
-	    sum (expt (- (eval (individual-tree individual)) 
-			 (aref data-points i 1)) 2))))
+      (let ((fn (compile-tree (individual-tree individual))))
+        (loop for i from 0 below fitness-cases
+	      do (setf *X* (aref data-points i 0))
+	      sum (expt (- (funcall fn) 
+			   (aref data-points i 1)) 2)))))
 
 ;;;
 ;;; run GP
