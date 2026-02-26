@@ -46,8 +46,6 @@
   #'(lambda ()
       (+ min (random (float (1+ (- max min)))))))
 
-(setf *generate-constant* (real-constants -5 5))
-
 (defparameter *fset* (make-fset 'gp-plus 2
 				'gp-minus 2 
 				'gp-times 2
@@ -153,6 +151,7 @@
 					   :mt-rate 0.1
 					   :node-rate 0.05
 					   :elitism t
+					   :generate-constant (real-constants -5 5)
 					   :type :generational
 					   ))
 

@@ -87,6 +87,7 @@
 	   gp-params-comparator
 	   gp-params-elitism
 	   gp-params-seed
+	   gp-params-generate-constant
 	   gp-params-type
 	   subtree-mutation
 	   ))

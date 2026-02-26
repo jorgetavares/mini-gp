@@ -40,12 +40,17 @@
   (comparator #'<)
   (elitism t)
   (seed nil)
+  (generate-constant nil)
   (type :generational))
 
 (defun launch-gp (fset tset &key (id "gp") (runs 1) (output :screen) 
 		       (generations nil gen-p) (pop-size nil ps-p)
 		       (initial-depth nil id-p) (max-depth nil md-p)
+		       (t-size nil ts-p) (cx-rate nil cx-p)
+		       (mt-rate nil mt-p) (node-rate nil nr-p)
+		       (comparator nil cmp-p)
 		       (elitism nil el-p) (fitness-function nil ff-p)
+		       (generate-constant nil gc-p)
 		       (params nil) (type nil ty-p) (seed nil seed-p)) 
   "Start GP.  When :params is supplied, individual keyword arguments
    override the corresponding fields in the params struct."
@@ -64,15 +69,22 @@
 		     :tset (gp-params-tset base)
 		     :fitness (if ff-p fitness-function
 				  (gp-params-fitness base))
-		     :t-size (gp-params-t-size base)
-		     :cx-rate (gp-params-cx-rate base)
-		     :mt-rate (gp-params-mt-rate base)
-		     :node-rate (gp-params-node-rate base)
-		     :comparator (gp-params-comparator base)
+		     :t-size (if ts-p t-size
+				 (gp-params-t-size base))
+		     :cx-rate (if cx-p cx-rate
+				  (gp-params-cx-rate base))
+		     :mt-rate (if mt-p mt-rate
+				  (gp-params-mt-rate base))
+		     :node-rate (if nr-p node-rate
+				    (gp-params-node-rate base))
+		     :comparator (if cmp-p comparator
+				     (gp-params-comparator base))
 		     :elitism (if el-p elitism
 				  (gp-params-elitism base))
 		     :seed (if seed-p seed
 			       (gp-params-seed base))
+		     :generate-constant (if gc-p generate-constant
+					       (gp-params-generate-constant base))
 		     :type (if ty-p type
 			       (gp-params-type base)))))
     (gp-multiple-runs gp-params :runs runs :output output :id id 

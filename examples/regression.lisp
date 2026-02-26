@@ -48,8 +48,6 @@
   #'(lambda ()
       (+ min (random (1+ (- max min))))))
 
-(setf *generate-constant* (int-constants -5 5))
-
 (defparameter *fset* (make-fset 'gp-plus 2
 				'gp-minus 2 
 				'gp-times 2
@@ -67,13 +65,14 @@
 (defparameter *y-points* (loop for x in *x-points* collect (float (/ (expt x 2) 2))))
 
 (defun make-fitness-regression (fitness-cases x-points y-points)
+  (declare (ignore fitness-cases))
   #'(lambda (individual)
       (let* ((env (make-env '(var-x)))
 	     (fn (compile-tree-with-env (individual-tree individual) env)))
-        (loop for i from 0 below fitness-cases
-	      do (setf (env-var env 'var-x) (nth i x-points))
-	      sum (expt (- (funcall fn) 
-			   (nth i y-points)) 2)))))
+        (loop for x in x-points
+	      for y in y-points
+	      do (setf (env-var env 'var-x) x)
+	      sum (expt (- (funcall fn) y) 2)))))
 
 
 ;;;
@@ -89,6 +88,7 @@
 						  :fitness (make-fitness-regression 
 							    10 *x-points* *y-points*)
 						  :elitism nil
+						  :generate-constant (int-constants -5 5)
 						  :type :steady-state
 						  ))
 

@@ -167,6 +167,8 @@
 
 (defun run-single-gp (parameters output streams)
   "Main gp loop."
+  (let ((*generate-constant* (or (gp-params-generate-constant parameters)
+				 *generate-constant*)))
   (let* ((total-generations (gp-params-total-generations parameters))
 	 (pop-size (gp-params-pop-size parameters))
 	 (initial-depth (gp-params-initial-depth parameters))
@@ -207,10 +209,12 @@
 		 (setf new-best-p t))
 	       (output-generation generation population pop-size best 
 				  run-best new-best-p output streams))
-	  finally (return run-best))))
+	  finally (return run-best)))))
 
 (defun run-steady-state (parameters output streams)
   "Main gp loop."
+  (let ((*generate-constant* (or (gp-params-generate-constant parameters)
+				 *generate-constant*)))
   (let* ((total-generations (gp-params-total-generations parameters))
 	 (pop-size (gp-params-pop-size parameters))
 	 (initial-depth (gp-params-initial-depth parameters))
@@ -224,7 +228,6 @@
 	 (fitness (gp-params-fitness parameters))
 	 (t-size (gp-params-t-size parameters))
 	 (cx-rate (gp-params-cx-rate parameters))
-	 (mt-rate (gp-params-mt-rate parameters))
 	 (node-rate (gp-params-node-rate parameters))
 	 (comparator (gp-params-comparator parameters))
 	 (inverse-comparator (lambda (a b) (funcall comparator b a)))
@@ -262,5 +265,5 @@
 		 (setf new-best-p t))
 	       (output-generation generation population pop-size best 
 				  run-best new-best-p output streams))
-	  finally (return run-best))))
+	  finally (return run-best)))))
 

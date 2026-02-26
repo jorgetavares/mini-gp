@@ -34,7 +34,8 @@
 	   *tset*
 	   *fitness-cases*
 	   *x-points*
-	   *y-points*))
+	   *y-points*
+	   multi-regression))
 
 (in-package mini-gp-multiregression)
 
@@ -65,14 +66,13 @@
   #'(lambda (individual)
       (let* ((env (make-env '(var-x var-y)))
 	     (fn (compile-tree-with-env (individual-tree individual) env)))
-        (loop with expected = 0
-	      repeat fitness-cases
-	      do (let ((x (random 1.0))
-		      (y (random 1.0)))
-		   (setf (env-var env 'var-x) x
-			 (env-var env 'var-y) y)
-		   (setf expected (+ (* x x y) (* x y) y)))
-	      sum (expt (- expected (funcall fn)) 2)))))
+        (loop repeat fitness-cases
+	      sum (let ((x (random 1.0))
+			(y (random 1.0)))
+		    (setf (env-var env 'var-x) x
+			  (env-var env 'var-y) y)
+		    (let ((expected (+ (* x x y) (* x y) y)))
+		      (expt (- expected (funcall fn)) 2)))))))
 
 
 ;;;
