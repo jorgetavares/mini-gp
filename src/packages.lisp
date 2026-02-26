@@ -22,17 +22,14 @@
 (defpackage :mini-gp
   (:use :common-lisp)
   (:export launch-gp
-	   launch-gp2
-	   run-random-search
 	   gp-multiple-runs
 	   *generate-constant*
 	   gp-constant
 	   gp-plus
 	   gp-minus
 	   gp-times
-	   gp-divison
+	   gp-division
 	   gp-log
-	   gp-srqt
 	   gp-square-root
 	   gp-power
 	   gp-square
@@ -58,13 +55,18 @@
 	   make-individual
 	   individual-tree
 	   individual-fitness
-	   individual-info
 	   individual-eval-p
 	   safe-copy-individual
 	   make-random-individual
 	   eval-tree
 	   compile-tree
+	   make-env
+	   env-var
+	   eval-tree-with-env
+	   compile-tree-with-env
 	   make-fset
+	   build-fset-by-arity
+	   build-fset-arity-map
 	   function-name
 	   function-args
 	   ramped-half-and-half
@@ -80,7 +82,12 @@
 	   gp-params-tset
 	   gp-params-fitness
 	   gp-params-cx-rate
+	   gp-params-mt-rate
+	   gp-params-node-rate
+	   gp-params-comparator
 	   gp-params-elitism
+	   gp-params-seed
 	   gp-params-type
+	   subtree-mutation
 	   ))
   

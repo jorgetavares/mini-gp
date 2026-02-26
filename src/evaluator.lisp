@@ -110,3 +110,96 @@
     ;; Atoms: wrap constant in a thunk
     (t (let ((val tree))
          (lambda () val)))))
+
+;;; --------------------------------------------------------
+;;; Environment-based evaluation
+;;; --------------------------------------------------------
+;;;
+;;; These variants take an environment — an alist of (symbol . value-cell)
+;;; pairs where each value-cell is a cons whose car holds the current value.
+;;; Variable terminals look up their bindings in the environment rather than
+;;; calling global-state-mutating functions.
+;;;
+;;; Usage:
+;;;   (let* ((env (make-env '(x y)))     ; create environment with vars X, Y
+;;;          (fn  (compile-tree-with-env tree env)))
+;;;     (setf (env-var env 'x) 3.0       ; set X
+;;;           (env-var env 'y) 4.0)      ; set Y
+;;;     (funcall fn))                     ; evaluate tree
+;;;
+
+(defun make-env (variables)
+  "Create an environment alist for the given variable symbols.
+   Each entry is (SYMBOL . (value)), where the cons cell serves as a
+   mutable value-cell that can be shared with compiled closures."
+  (mapcar (lambda (var) (cons var (cons 0 nil))) variables))
+
+(defun env-var (env symbol)
+  "Get the current value of SYMBOL in ENV."
+  (car (cdr (assoc symbol env))))
+
+(defun (setf env-var) (value env symbol)
+  "Set the current value of SYMBOL in ENV."
+  (setf (car (cdr (assoc symbol env))) value))
+
+(defun eval-tree-with-env (tree env)
+  "Evaluate a GP tree using ENV for variable lookups.
+   Terminals that name a variable in ENV are resolved from the environment.
+   Other terminals are treated as in eval-tree (atoms self-evaluate,
+   single-element lists call 0-arity functions)."
+  (cond
+    ((consp tree)
+     (let* ((head (first tree))
+	    (args (rest tree))
+	    (binding (assoc head env)))
+       (if (and binding (null args))
+	   ;; Variable terminal: (VAR-X) with VAR-X in env
+	   (car (cdr binding))
+	   ;; Function application
+	   (let ((fn (symbol-function head)))
+	     (case (length args)
+	       (0 (funcall fn))
+	       (1 (funcall fn (eval-tree-with-env (first args) env)))
+	       (2 (funcall fn
+			   (eval-tree-with-env (first args) env)
+			   (eval-tree-with-env (second args) env)))
+	       (3 (funcall fn
+			   (eval-tree-with-env (first args) env)
+			   (eval-tree-with-env (second args) env)
+			   (eval-tree-with-env (third args) env)))
+	       (otherwise
+		(apply fn (mapcar (lambda (a) (eval-tree-with-env a env)) args))))))))
+    (t tree)))
+
+(defun compile-tree-with-env (tree env)
+  "Compile a GP tree into a zero-argument closure that reads variables from ENV.
+   Terminals matching a variable in ENV capture the environment's value-cell
+   directly, so subsequent (setf env-var) calls are reflected in evaluations."
+  (cond
+    ((consp tree)
+     (let* ((head (first tree))
+	    (args (rest tree))
+	    (binding (assoc head env)))
+       (if (and binding (null args))
+	   ;; Variable terminal: capture the value-cell cons
+	   (let ((cell (cdr binding)))
+	     (lambda () (car cell)))
+	   ;; Function application
+	   (let ((fn (symbol-function head))
+		 (compiled-args (mapcar (lambda (a) (compile-tree-with-env a env))
+					args)))
+	     (case (length compiled-args)
+	       (0 (lambda () (funcall fn)))
+	       (1 (let ((a1 (first compiled-args)))
+		    (lambda () (funcall fn (funcall a1)))))
+	       (2 (let ((a1 (first compiled-args))
+			(a2 (second compiled-args)))
+		    (lambda () (funcall fn (funcall a1) (funcall a2)))))
+	       (3 (let ((a1 (first compiled-args))
+			(a2 (second compiled-args))
+			(a3 (third compiled-args)))
+		    (lambda () (funcall fn (funcall a1) (funcall a2) (funcall a3)))))
+	       (otherwise
+		(lambda () (apply fn (mapcar #'funcall compiled-args)))))))))
+    (t (let ((val tree))
+	 (lambda () val)))))

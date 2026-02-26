@@ -30,8 +30,6 @@
 	   var-y
 	   int-constants
 	   make-fitness-regression
-	   *X*
-	   *Y*
 	   *fset*
 	   *tset*
 	   *fitness-cases*
@@ -45,11 +43,8 @@
 ;;; function and terminal sets
 ;;;
 
-(defparameter *X* 0)
-(defparameter *Y* 0)
-
-(defun var-x () *X*)
-(defun var-y () *Y*)
+(defun var-x () 0) ; kept for tree display; actual values come from env
+(defun var-y () 0)
 
 (defparameter *fset* (make-fset 'gp-plus 2
 				'gp-minus 2 
@@ -68,12 +63,15 @@
 
 (defun make-fitness-regression (fitness-cases)
   #'(lambda (individual)
-      (let ((fn (compile-tree (individual-tree individual))))
+      (let* ((env (make-env '(var-x var-y)))
+	     (fn (compile-tree-with-env (individual-tree individual) env)))
         (loop with expected = 0
 	      repeat fitness-cases
-	      do (progn
-		   (setf *X* (random 1.0) *Y* (random 1.0))
-		   (setf expected (+ (* *X* *X* *Y*) (* *X* *Y*) *Y*)))
+	      do (let ((x (random 1.0))
+		      (y (random 1.0)))
+		   (setf (env-var env 'var-x) x
+			 (env-var env 'var-y) y)
+		   (setf expected (+ (* x x y) (* x y) y)))
 	      sum (expt (- expected (funcall fn)) 2)))))
 
 

@@ -31,5 +31,4 @@
 	       (:file "src/operators")
 	       (:file "src/engine")
 	       (:file "src/mini-gp")
-	       (:static-file "README")
-	       (:static-file "LICENSE")))
+	       (:static-file "README.md")))
