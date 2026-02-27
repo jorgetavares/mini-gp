@@ -1,24 +1,3 @@
-;;;; Copyright (c) 2011 Jorge Tavares <jorge.tavares@ieee.org>
-;;;;
-;;;; Permission is hereby granted, free of charge, to any person obtaining
-;;;; a copy of this software and associated documentation files (the
-;;;; "Software"), to deal in the Software without restriction, including
-;;;; without limitation the rights to use, copy, modify, merge, publish,
-;;;; distribute, sublicense, and/or sell copies of the Software, and to
-;;;; permit persons to whom the Software is furnished to do so, subject to
-;;;; the following conditions:
-;;;;
-;;;; The above copyright notice and this permission notice shall be included
-;;;; in all copies or substantial portions of the Software.
-;;;;
-;;;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-;;;; EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-;;;; MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-;;;; IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-;;;; CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 (in-package :mini-gp)
 
 ;;;
@@ -30,8 +9,8 @@
 (defun tree-crossover (size p1 p2)
   (multiple-value-bind (o1 o2)
       (cross-subtrees (individual-tree p1) (individual-tree p2) size)
-    (values (make-individual :tree (copy-tree o1) :eval-p t)
-	    (make-individual :tree (copy-tree o2) :eval-p t))))
+    (values (make-individual :tree o1 :eval-p t)
+	    (make-individual :tree o2 :eval-p t))))
 
 (defun cross-subtrees (p1 p2 depth)
   "Exchanges two subtrees in a random point."
@@ -71,56 +50,103 @@
         (p2-limit (tree-depth (first o2))))
     (values
      (if (or (= 1 p1-limit) (> p1-limit depth))
-         p1 (first o1))
+         (copy-tree p1) (first o1))
      (if (or (= 1 p2-limit) (> p2-limit depth))
-         p2 (first o2)))))
+         (copy-tree p2) (first o2)))))
 
 (defun count-tree-nodes (tree)
   "Count the number of nodes in a tree."
   (if (consp tree)
-      (+ 1 (reduce #'+ (mapcar #'count-tree-nodes (rest tree)))) 1))
+      (let ((count 1))
+	(dolist (child (rest tree) count)
+	  (incf count (count-tree-nodes child))))
+      1))
 
 (defun tree-depth (tree)
   "Return the max depth of a tree."
   (if (consp tree)
-      (+ 1 (if (rest tree)
-	       (apply #'max (mapcar #'tree-depth (rest tree))) 0)) 1))
+      (let ((max-child 0))
+	(dolist (child (rest tree) (1+ max-child))
+	  (let ((d (tree-depth child)))
+	    (when (> d max-child) (setf max-child d)))))
+      1))
 
 
 ;;;
 ;;; mutation
 ;;;
 
+(defun build-fset-by-arity (fset)
+  "Build a hash table mapping arity to vector of fset entries."
+  (let ((ht (make-hash-table)))
+    (dolist (f fset)
+      (push f (gethash (function-args f) ht)))
+    (maphash (lambda (k v)
+	       (setf (gethash k ht) (coerce v 'vector)))
+	     ht)
+    ht))
+
+(defun build-fset-arity-map (fset)
+  "Build a hash table mapping function symbol to its arity."
+  (let ((ht (make-hash-table)))
+    (dolist (f fset ht)
+      (setf (gethash (function-name f) ht) (function-args f)))))
+
 ;; point mutation
 
-(defun point-mutation (individual rate fset tset tset-size)
+(defun point-mutation (individual rate fset-arity-map fset-by-arity tset tset-size)
   "Point mutation: for every node that can be mutated, changes to an equivalent type."
   (setf (individual-tree individual)
-	(point-mutate-tree (individual-tree individual) rate fset tset tset-size))
+	(point-mutate-tree (individual-tree individual) rate fset-arity-map fset-by-arity tset tset-size))
+  (setf (individual-eval-p individual) t)
   individual)
 
-(defun point-mutate-tree (tree rate fset tset tset-size)
+(defun point-mutate-tree (tree rate fset-arity-map fset-by-arity tset tset-size)
   "Point mutation: for every node that can be mutated, changes to an equivalent type."
   (if (or (not (consp tree))
 	  (null (rest tree)))
       (mutate-terminal tree rate tset tset-size)
     (let* ((element (first tree))
-	   (nargs (function-args (assoc element fset))))
-      (cons (mutate-function element nargs rate fset) 
-	    (loop for arg from 1 to nargs
-		  collect (point-mutate-tree (nth arg tree) rate fset tset tset-size))))))
+	   (nargs (gethash element fset-arity-map)))
+      (cons (mutate-function element nargs rate fset-by-arity) 
+	    (loop for child in (rest tree)
+		  collect (point-mutate-tree child rate fset-arity-map fset-by-arity tset tset-size))))))
 
 (defun mutate-terminal (terminal rate tset tset-size)
   (if (< (random 1.0) rate)
-      (process-terminal (nth (random tset-size) tset))
+      (process-terminal (aref tset (random tset-size)))
     terminal))
 
-(defun mutate-function (function nargs rate fset)
+(defun mutate-function (function nargs rate fset-by-arity)
   (if (< (random 1.0) rate)
-      (let ((filtered-fset (mapcan #'(lambda (f)
-				       (when (= nargs (function-args f)) 
-					 (list f))) fset)))
-	(if (null filtered-fset)
+      (let ((candidates (gethash nargs fset-by-arity)))
+	(if (null candidates)
 	    function
-	  (function-name (nth (random (length filtered-fset)) filtered-fset))))	
+	    (function-name (aref candidates (random (length candidates))))))
     function))
+
+
+;; subtree mutation
+
+(defun subtree-mutation (individual max-depth fset tset)
+  "Subtree mutation: replace a random subtree with a new random tree.
+   Returns the (modified) individual with eval-p set to t."
+  (let* ((tree (individual-tree individual))
+	 (num-nodes (count-tree-nodes tree))
+	 (point (random num-nodes))
+	 (wrapper (list (copy-tree tree))))
+    (multiple-value-bind (subtree-cell fragment)
+	(get-subtree (first wrapper) wrapper point)
+      (declare (ignore fragment))
+      (let ((new-subtree (ramped-half-and-half (max 1 (- max-depth 1)) fset tset)))
+	(setf (first subtree-cell) new-subtree)))
+    (let ((result (first wrapper)))
+      (if (> (tree-depth result) max-depth)
+	  ;; reject: keep original tree
+	  (progn
+	    (setf (individual-eval-p individual) nil)
+	    individual)
+	  (progn
+	    (setf (individual-tree individual) result)
+	    (setf (individual-eval-p individual) t)
+	    individual)))))

@@ -1,24 +1,3 @@
-;;;; Copyright (c) 2011 Jorge Tavares <jorge.tavares@ieee.org>
-;;;;
-;;;; Permission is hereby granted, free of charge, to any person obtaining
-;;;; a copy of this software and associated documentation files (the
-;;;; "Software"), to deal in the Software without restriction, including
-;;;; without limitation the rights to use, copy, modify, merge, publish,
-;;;; distribute, sublicense, and/or sell copies of the Software, and to
-;;;; permit persons to whom the Software is furnished to do so, subject to
-;;;; the following conditions:
-;;;;
-;;;; The above copyright notice and this permission notice shall be included
-;;;; in all copies or substantial portions of the Software.
-;;;;
-;;;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-;;;; EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-;;;; MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-;;;; IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-;;;; CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 ;;;;
 ;;;; mini-gp example: multi-valued symbolic regression
 ;;;;
@@ -30,13 +9,12 @@
 	   var-y
 	   int-constants
 	   make-fitness-regression
-	   *X*
-	   *Y*
 	   *fset*
 	   *tset*
 	   *fitness-cases*
 	   *x-points*
-	   *y-points*))
+	   *y-points*
+	   multi-regression))
 
 (in-package mini-gp-multiregression)
 
@@ -45,11 +23,8 @@
 ;;; function and terminal sets
 ;;;
 
-(defparameter *X* 0)
-(defparameter *Y* 0)
-
-(defun var-x () *X*)
-(defun var-y () *Y*)
+(defun var-x () 0) ; kept for tree display; actual values come from env
+(defun var-y () 0)
 
 (defparameter *fset* (make-fset 'gp-plus 2
 				'gp-minus 2 
@@ -68,13 +43,15 @@
 
 (defun make-fitness-regression (fitness-cases)
   #'(lambda (individual)
-      (loop with expected = 0
-	    repeat fitness-cases
-	    do (progn
-		 (setf *X* (random 1.0) *Y* (random 1.0))
-		 (setf expected (+ (* *X* *X* *Y*) (* *X* *Y*) *Y*)))
-	    sum (expt (- expected 
-			 (eval (individual-tree individual)) 2))))
+      (let* ((env (make-env '(var-x var-y)))
+	     (fn (compile-tree-with-env (individual-tree individual) env)))
+        (loop repeat fitness-cases
+	      sum (let ((x (random 1.0))
+			(y (random 1.0)))
+		    (setf (env-var env 'var-x) x
+			  (env-var env 'var-y) y)
+		    (let ((expected (+ (* x x y) (* x y) y)))
+		      (expt (- expected (funcall fn)) 2)))))))
 
 
 ;;;

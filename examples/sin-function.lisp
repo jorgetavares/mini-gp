@@ -1,24 +1,3 @@
-;;;; Copyright (c) 2011 Jorge Tavares <jorge.tavares@ieee.org>
-;;;;
-;;;; Permission is hereby granted, free of charge, to any person obtaining
-;;;; a copy of this software and associated documentation files (the
-;;;; "Software"), to deal in the Software without restriction, including
-;;;; without limitation the rights to use, copy, modify, merge, publish,
-;;;; distribute, sublicense, and/or sell copies of the Software, and to
-;;;; permit persons to whom the Software is furnished to do so, subject to
-;;;; the following conditions:
-;;;;
-;;;; The above copyright notice and this permission notice shall be included
-;;;; in all copies or substantial portions of the Software.
-;;;;
-;;;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-;;;; EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-;;;; MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-;;;; IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-;;;; CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-;;;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-;;;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 ;;;;
 ;;;; mini-gp example: sin function example (see tinygp code for more info)
 ;;;;
@@ -29,7 +8,6 @@
 	   var-x
 	   real-constants
 	   make-fitness-regression
-	   *X*
 	   *fset*
 	   *tset*
 	   *sin-data-points*
@@ -41,20 +19,16 @@
 ;;; function and terminal sets
 ;;;
 
-(defparameter *X* 0)
-
-(defun var-x () *X*)
+(defun var-x () 0) ; kept for tree display; actual values come from env
 
 (defun real-constants (min max)
   #'(lambda ()
       (+ min (random (float (1+ (- max min)))))))
 
-(setf *generate-constant* (real-constants -5 5))
-
 (defparameter *fset* (make-fset 'gp-plus 2
 				'gp-minus 2 
 				'gp-times 2
-				'gp-divison 2
+				'gp-division 2
 				))
 
 (defparameter *tset* '(gp-constant var-x))
@@ -132,36 +106,44 @@
 
 (defun make-fitness-sin (fitness-cases data-points)
   #'(lambda (individual)
-      (loop for i from 0 below fitness-cases
-	    do (setf *X* (aref data-points i 0))
-	    sum (expt (- (eval (individual-tree individual)) 
-			 (aref data-points i 1)) 2))))
+      (let* ((env (make-env '(var-x)))
+	     (fn (compile-tree-with-env (individual-tree individual) env)))
+        (loop for i from 0 below fitness-cases
+	      do (setf (env-var env 'var-x) (aref data-points i 0))
+	      sum (expt (- (funcall fn) 
+			   (aref data-points i 1)) 2)))))
 
 ;;;
 ;;; run GP
 ;;;
 
-(defparameter *sin-params* (make-gp-params :total-generations 50
+(defparameter *sin-params* (make-gp-params :total-generations 500
 					   :pop-size 20000
 					   :initial-depth 2
-					   :max-depth 5
+					   :max-depth 6
+					   :t-size 5
 					   :fset *fset*
 					   :tset *tset*
 					   :fitness (make-fitness-sin
 						     63 *data-points*)
-					   :elitism nil
-					   :type :steady-state
+					   :cx-rate 0.9
+					   :mt-rate 0.1
+					   :node-rate 0.05
+					   :elitism t
+					   :generate-constant (real-constants -5 5)
+					   :type :generational
 					   ))
 
 (defun gp-sin (&key (params *sin-params*) (runs 1) (output :screen)) 
   (launch-gp *fset* *tset* :params params :runs runs :output output)) 
 		 
 ;; solution example evolved by mini-gp
+;; Tip: results vary across runs — try (gp-sin :runs 5) and keep the best.
 ;(#S(INDIVIDUAL
-;    :TREE (GP-DIVISON (GP-MINUS 3.1250563 (VAR-X))
-;                      (GP-PLUS
-;                       (GP-DIVISON (GP-MINUS 2.9542685 (VAR-X)) (VAR-X))
-;                       (GP-DIVISON
-;                        (GP-TIMES 3.1954536 (GP-DIVISON (VAR-X) (VAR-X)))
-;                        (GP-MINUS 3.1486473 (GP-MINUS (VAR-X) 3.1702633)))))
+;    :TREE (GP-DIVISION (GP-MINUS 3.1250563 (VAR-X))
+;                       (GP-PLUS
+;                        (GP-DIVISION (GP-MINUS 2.9542685 (VAR-X)) (VAR-X))
+;                        (GP-DIVISION
+;                         (GP-TIMES 3.1954536 (GP-DIVISION (VAR-X) (VAR-X)))
+;                         (GP-MINUS 3.1486473 (GP-MINUS (VAR-X) 3.1702633)))))
 ;    :FITNESS 0.020194128))
